@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed errorPages
@@ -103,7 +104,11 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 		IsDefault: true,
 	}
 
-	http.Handle(viper.GetString("http.context"), requestHandler(useEmbedded, customize))
+	nextRequestID := func() string {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+
+	http.Handle(viper.GetString("http.context"), Tracing(nextRequestID)(Logging(Logger)(requestHandler(useEmbedded, customize))))
 	Port = viper.GetInt("http.port")
 }
 
