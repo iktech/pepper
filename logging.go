@@ -32,7 +32,10 @@ func Logging(logger *log.Logger) func(http.Handler) http.Handler {
 
 				ip := r.Header.Get("X-Forwarded-For")
 				if ip == "" {
-					ip = r.RemoteAddr[:strings.IndexByte(ip, ':')]
+					ip = r.RemoteAddr
+					if strings.Contains(ip, ":") {
+						ip = r.RemoteAddr[:strings.IndexByte(ip, ':')]
+					}
 				}
 
 				if r.URL.Path != "/ready" && r.URL.Path != "/healthz" && r.URL.Path != "/metrics" {
