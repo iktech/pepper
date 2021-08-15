@@ -215,7 +215,6 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	path := strings.TrimPrefix(r.URL.Path, "/")
-	Logger.Printf("received request to '%s'", path)
 	span.SetTag("resource", path)
 	redirect, found := s.redirects[path]
 	if found {
@@ -232,7 +231,6 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		span.LogFields(otlog.String("event", "handler"))
 		code, redirectUrl, contentType, b, controllerError := route.Handle(r)
-		Logger.Printf("handler returned code %d and optional redirect url '%s'", code, redirectUrl)
 		if controllerError != nil {
 			message := fmt.Sprintf("cannot handle request %s: %v", path, controllerError)
 			span.LogFields(otlog.String("event", "controller-error"), otlog.String("message", message))
@@ -257,10 +255,8 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			code == 307 ||
 			code == 308 {
 			if redirectUrl != "" {
-				Logger.Printf("redirecting to %s", redirectUrl)
 				w.Header().Set("Location", redirectUrl)
 			} else {
-				Logger.Printf("redirecting to %s", r.URL.String())
 				w.Header().Set("Location", r.URL.String())
 			}
 			w.WriteHeader(code)
