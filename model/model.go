@@ -1,67 +1,67 @@
 package model
 
 import (
-    "bytes"
-    "html/template"
-    "io/fs"
-    "log"
+	"bytes"
+	"html/template"
+	"io/fs"
+	"log"
 )
 
 type Model struct {
-    Path                string
-    TemplatesDirectory  fs.FS
-    Logger              *log.Logger
-    Template            string
-    Includes            []string
-    ResponseCode        int
-    ContentType         string
+	Path               string
+	TemplatesDirectory fs.FS
+	Logger             *log.Logger
+	Template           string
+	Includes           []string
+	ResponseCode       int
+	ContentType        string
+	GoogleAnalyticsId  string
 }
 
 type ProcessingError struct {
-    ResponseCode int
-    Data         interface{}
+	ResponseCode int
+	Data         interface{}
 }
 
 func (m Model) IsActive(path string) string {
-    if m.Path == path {
-        return "link link-selected"
-    }
+	if m.Path == path {
+		return "link link-selected"
+	}
 
-    return "link"
+	return "link"
 }
 
 func (m Model) Render(Debug bool, data interface{}) (int, string, string, *bytes.Buffer, *ProcessingError) {
-    if Debug {
-        m.Logger.Printf("using %s template", m.Template)
-    }
+	if Debug {
+		m.Logger.Printf("using %s template", m.Template)
+	}
 
-    patterns := []string{ m.Template }
-    patterns = append(patterns, m.Includes...)
+	patterns := []string{m.Template}
+	patterns = append(patterns, m.Includes...)
 
-    t, err := template.New(m.Template).ParseFS(m.TemplatesDirectory, patterns...)
-    if err != nil {
-        m.Logger.Println(err)
-        return 0, "", "", nil, &ProcessingError{ ResponseCode: 500 }
-    }
+	t, err := template.New(m.Template).ParseFS(m.TemplatesDirectory, patterns...)
+	if err != nil {
+		m.Logger.Println(err)
+		return 0, "", "", nil, &ProcessingError{ResponseCode: 500}
+	}
 
-    var buf bytes.Buffer
+	var buf bytes.Buffer
 
-    err = t.Execute(&buf, &data)
-    if err != nil {
-        m.Logger.Println(err)
-        return 0, "", "", nil, &ProcessingError{ ResponseCode: 500 }
-    }
+	err = t.Execute(&buf, &data)
+	if err != nil {
+		m.Logger.Println(err)
+		return 0, "", "", nil, &ProcessingError{ResponseCode: 500}
+	}
 
+	code := m.ResponseCode
+	if code == 0 {
+		code = 200
+	}
 
-    code := m.ResponseCode
-    if code == 0 {
-        code = 200
-    }
+	contentType := m.ContentType
+	if m.ContentType == "" {
+		contentType = "text/html"
+	}
 
-    contentType := m.ContentType
-    if m.ContentType == "" {
-        contentType = "text/html"
-    }
-
-    return code, "", contentType, &buf, nil
+	return code, "", contentType, &buf, nil
 }

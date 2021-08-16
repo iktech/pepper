@@ -42,13 +42,14 @@ type Service struct {
 }
 
 var (
-	Logger      *log.Logger
-	Debug       bool
-	Port        int
-	staticFiles embed.FS
-	templates   fs.FS
-	ErrorPages  map[int]*ErrorPageDefinition
-	Tracer      opentracing.Tracer
+	Logger           *log.Logger
+	Debug            bool
+	Port             int
+	staticFiles      embed.FS
+	templates        fs.FS
+	ErrorPages       map[int]*ErrorPageDefinition
+	Tracer           opentracing.Tracer
+	GoogleAnayticsId string
 )
 
 func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controllers.Controller) map[string]controllers.Controller) {
@@ -69,9 +70,11 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 	viper.SetDefault("http.context", "/")
 
 	_ = viper.BindEnv("http.content.useEmbedded", "HTTP_USE_EMBEDDED")
+	_ = viper.BindEnv("google.analytics.id", "GOOGLE_ANALYTICS_ID")
 
 	controllers.Debug = Debug
 	useEmbedded := viper.GetBool("http.content.useEmbedded")
+	GoogleAnayticsId = viper.GetString("google.analytics.id")
 	// Launch web server on port 80
 	ErrorPages = make(map[int]*ErrorPageDefinition)
 	ErrorPages[400] = &ErrorPageDefinition{
@@ -143,6 +146,7 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 				TemplatesDirectory: fsRoot,
 				Logger:             Logger,
 				Includes:           includes,
+				GoogleAnalyticsId:  GoogleAnayticsId,
 			},
 		}
 	}
