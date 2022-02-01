@@ -9,6 +9,7 @@ import (
 	"github.com/iktech/pepper/model"
 	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	"html/template"
@@ -44,14 +45,22 @@ type Service struct {
 }
 
 var (
-	Logger           *log.Logger
-	Debug            bool
-	Port             int
-	staticFiles      embed.FS
-	templates        fs.FS
-	ErrorPages       map[int]*ErrorPageDefinition
-	Tracer           opentracing.Tracer
-	GoogleAnayticsId string
+	Logger                 *log.Logger
+	Debug                  bool
+	Port                   int
+	staticFiles            embed.FS
+	templates              fs.FS
+	ErrorPages             map[int]*ErrorPageDefinition
+	Tracer                 opentracing.Tracer
+	GoogleAnayticsId       string
+	RequestDurationSummary = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "http_router_request_duration",
+			Help:       "Duration of the HTTP request",
+			Objectives: map[float64]float64{},
+		},
+		[]string{"code", "method", "path"},
+	)
 )
 
 func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controllers.Controller) map[string]controllers.Controller) {
@@ -110,6 +119,7 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 		IsDefault: true,
 	}
 
+	prometheus.MustRegister(RequestDurationSummary)
 	nextRequestID := func() string {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
