@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"github.com/iktech/pepper/authentication"
 	"github.com/iktech/pepper/controllers"
 	"github.com/iktech/pepper/model"
 	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	"html/template"
 	"io/fs"
@@ -68,6 +70,7 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 	viper.SetDefault("http.content.staticDirectory", "static")
 	viper.SetDefault("http.port", 8888)
 	viper.SetDefault("http.context", "/")
+	viper.SetDefault("http.password.file", "/etc/pepper/.passwd")
 
 	_ = viper.BindEnv("http.content.useEmbedded", "HTTP_USE_EMBEDDED")
 	_ = viper.BindEnv("google.analytics.id", "GOOGLE_ANALYTICS_ID")
@@ -214,6 +217,24 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 }
 
 func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/metrics" {
+		if r.Method == "GET" {
+			var ba = &authentication.BasicAuthHandler{}
+			var prometheusHandler = ba.BasicAuth(viper.GetString("http.password.file"))(promhttp.Handler())
+
+			prometheusHandler.ServeHTTP(w, r)
+		} else {
+			b := []byte("Method not allowed")
+			w.WriteHeader(405)
+			w.Header().Set("Content-Type", "text/plain")
+			_, err := w.Write(b)
+			if err != nil {
+				Logger.Printf("cannot write response body: %v", err)
+			}
+			return
+		}
+	}
+
 	span := Tracer.StartSpan("serve-http")
 
 	defer span.Finish()
