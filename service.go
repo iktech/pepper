@@ -232,10 +232,6 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 }
 
 func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	//if r.URL.Path == "/metrics" {
-	//    return
-	//}
-	//
 	span := Tracer.StartSpan("serve-http")
 
 	defer span.Finish()
