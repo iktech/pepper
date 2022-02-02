@@ -45,18 +45,26 @@ type Service struct {
 }
 
 var (
-	Logger                 *log.Logger
-	Debug                  bool
-	Port                   int
-	staticFiles            embed.FS
-	templates              fs.FS
-	ErrorPages             map[int]*ErrorPageDefinition
-	Tracer                 opentracing.Tracer
-	GoogleAnayticsId       string
-	RequestDurationSummary = prometheus.NewGaugeVec(
+	Logger               *log.Logger
+	Debug                bool
+	Port                 int
+	staticFiles          embed.FS
+	templates            fs.FS
+	ErrorPages           map[int]*ErrorPageDefinition
+	Tracer               opentracing.Tracer
+	GoogleAnayticsId     string
+	RequestDurationGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "http_router_request_duration",
 			Help: "Duration of the HTTP request",
+		},
+		[]string{"code", "method", "path"},
+	)
+	RequestDurationSummary = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "http_router_request",
+			Help:       "Summary of the HTTP request duration",
+			Objectives: map[float64]float64{},
 		},
 		[]string{"code", "method", "path"},
 	)
@@ -119,7 +127,7 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 		IsDefault: true,
 	}
 
-	prometheus.MustRegister(RequestDurationSummary)
+	prometheus.MustRegister(RequestDurationGauge)
 	nextRequestID := func() string {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
