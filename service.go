@@ -128,6 +128,7 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 	}
 
 	prometheus.MustRegister(RequestDurationGauge)
+	prometheus.MustRegister(RequestDurationSummary)
 	nextRequestID := func() string {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
