@@ -41,7 +41,7 @@ func Logging(logger *log.Logger) func(http.Handler) http.Handler {
 
 				if r.URL.Path != "/ready" && r.URL.Path != "/healthz" && r.URL.Path != "/metrics" {
 					logger.Println(ip, requestID, r.Method, lrw.statusCode, r.URL.RequestURI(), lrw.duration, lrw.size, r.UserAgent())
-					RequestDurationSummary.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(lrw.statusCode)).Observe(lrw.duration)
+					RequestDurationSummary.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(lrw.statusCode)).Set(lrw.duration)
 				}
 			}()
 		})

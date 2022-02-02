@@ -53,11 +53,10 @@ var (
 	ErrorPages             map[int]*ErrorPageDefinition
 	Tracer                 opentracing.Tracer
 	GoogleAnayticsId       string
-	RequestDurationSummary = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "http_router_request_duration",
-			Help:       "Duration of the HTTP request",
-			Objectives: map[float64]float64{},
+	RequestDurationSummary = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "http_router_request_duration",
+			Help: "Duration of the HTTP request",
 		},
 		[]string{"code", "method", "path"},
 	)
