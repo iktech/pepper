@@ -32,7 +32,7 @@ func (m Model) IsActive(path string) string {
 	return "link"
 }
 
-func isset(name string, data interface{}) bool {
+func IsSet(name string, data interface{}) bool {
 	v := reflect.ValueOf(data)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -51,7 +51,7 @@ func (m Model) Render(Debug bool, data interface{}) (int, string, string, *bytes
 	patterns := []string{m.Template}
 	patterns = append(patterns, m.Includes...)
 
-	t, err := template.New(m.Template).Funcs(template.FuncMap{"isset": isset}).ParseFS(m.TemplatesDirectory, patterns...)
+	t, err := template.New(m.Template).Funcs(template.FuncMap{"isset": IsSet}).ParseFS(m.TemplatesDirectory, patterns...)
 	if err != nil {
 		m.Logger.Println(err)
 		return 0, "", "", nil, &ProcessingError{ResponseCode: 500}
