@@ -20,8 +20,9 @@ type Model struct {
 }
 
 type ProcessingError struct {
-	ResponseCode int
-	Data         interface{}
+	ResponseCode      int
+	Data              interface{}
+	GoogleAnalyticsId string
 }
 
 func (m Model) IsActive(path string) string {
