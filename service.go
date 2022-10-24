@@ -313,8 +313,10 @@ func GetErrorPageContent(pe model.ProcessingError) ([]byte, error) {
 			} else {
 				fsRoot = templates
 			}
+			patterns := []string{errorDefinition.Name}
+			patterns = append(patterns, viper.GetStringSlice("http.includes")...)
 
-			t, err := template.New(errorDefinition.Name).ParseFS(fsRoot, errorDefinition.Name)
+			t, err := template.New(errorDefinition.Name).ParseFS(fsRoot, patterns...)
 			if err != nil {
 				Logger.Printf("cannot create template %s: %v", errorDefinition.Name, err)
 				return nil, err
