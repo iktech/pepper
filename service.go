@@ -307,7 +307,12 @@ func GetErrorPageContent(pe model.ProcessingError) ([]byte, error) {
 	errorDefinition := ErrorPages[pe.ResponseCode]
 	if errorDefinition != nil {
 		if errorDefinition.IsTemplate {
-			fsRoot, _ := fs.Sub(templates, viper.GetString("http.content.templatesDirectory"))
+			var fsRoot fs.FS
+			if viper.GetBool("http.content.useEmbedded") {
+				fsRoot, _ = fs.Sub(templates, viper.GetString("http.content.templatesDirectory"))
+			} else {
+				fsRoot = templates
+			}
 
 			t, err := template.New(errorDefinition.Name).ParseFS(fsRoot, errorDefinition.Name)
 			if err != nil {
