@@ -315,7 +315,6 @@ func GetErrorPageContent(pe model.ProcessingError) ([]byte, error) {
 			}
 			patterns := []string{errorDefinition.Name}
 			patterns = append(patterns, viper.GetStringSlice("http.includes")...)
-			pe.GoogleAnalyticsId = GoogleAnayticsId
 
 			t, err := template.New(errorDefinition.Name).Funcs(template.FuncMap{"isset": model.IsSet}).ParseFS(fsRoot, patterns...)
 			if err != nil {
