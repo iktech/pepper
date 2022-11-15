@@ -257,7 +257,25 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route := s.routerMap[path]
 	if route == nil {
 		span.LogFields(otlog.String("event", "static-file"))
-		s.staticHandler.ServeHTTP(w, r)
+		if staticFileExists(path) {
+			s.staticHandler.ServeHTTP(w, r)
+		} else {
+			message := fmt.Sprintf("static file %s does not exist", path)
+			span.LogFields(otlog.String("event", "controller-error"), otlog.String("message", message))
+			Logger.Println(message)
+			b, err := GetErrorPageContent(model.ProcessingError{ResponseCode: 404})
+			if err != nil {
+				Logger.Printf("cannot read error page content: %v", err)
+			}
+
+			w.WriteHeader(404)
+			w.Header().Set("Content-Type", "text/html")
+			_, err = w.Write(b)
+			if err != nil {
+				Logger.Printf("cannot write response body: %v", err)
+			}
+			return
+		}
 	} else {
 		span.LogFields(otlog.String("event", "handler"))
 		code, redirectUrl, contentType, b, controllerError := route.Handle(r)
@@ -338,4 +356,22 @@ func GetErrorPageContent(pe model.ProcessingError) ([]byte, error) {
 		}
 	}
 	return nil, nil
+}
+
+func staticFileExists(fileName string) bool {
+	useEmbedded := viper.GetBool("http.content.useEmbedded")
+	var fsRoot fs.FS
+	fsRoot, _ = fs.Sub(staticFiles, viper.GetString("http.content.staticDirectory"))
+
+	if !useEmbedded {
+		fsRoot = os.DirFS(viper.GetString("http.content.staticDirectory"))
+	}
+
+	var static = http.FS(fsRoot)
+	f, err := static.Open(fileName)
+	if err == nil {
+		_ = f.Close()
+		return true
+	}
+	return false
 }
