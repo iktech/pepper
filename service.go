@@ -7,6 +7,7 @@ import (
 	"github.com/iktech/pepper/authentication"
 	"github.com/iktech/pepper/controllers"
 	"github.com/iktech/pepper/model"
+	"github.com/iktech/pepper/tracing"
 	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
@@ -240,9 +241,11 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 }
 
 func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	span := Tracer.StartSpan("serve-http")
-
+	ctx := r.Context()
+	ctx, span := tracing.CreateChildSpanCtx(ctx, "/beta")
 	defer span.Finish()
+
+	r = r.WithContext(ctx)
 
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	span.SetTag("resource", path)
