@@ -283,14 +283,29 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			message := fmt.Sprintf("cannot handle request %s: %v", path, controllerError)
 			span.LogFields(otlog.String("event", "controller-error"), otlog.String("message", message))
 			Logger.Println(message)
-			b, err := GetErrorPageContent(*controllerError)
-			if err != nil {
-				Logger.Printf("cannot read error page content: %v", err)
+			w.WriteHeader(controllerError.ResponseCode)
+
+			if contentType == "" {
+				contentType = "text/html"
 			}
 
-			w.WriteHeader(controllerError.ResponseCode)
-			w.Header().Set("Content-Type", "text/html")
-			_, err = w.Write(b)
+			w.Header().Set("Content-Type", contentType)
+
+			var (
+				errorPageContent []byte
+				err              error
+			)
+
+			if b == nil {
+				errorPageContent, err = GetErrorPageContent(*controllerError)
+				if err != nil {
+					Logger.Printf("cannot read error page content: %v", err)
+				}
+			} else {
+				errorPageContent = b.Bytes()
+			}
+
+			_, err = w.Write(errorPageContent)
 			if err != nil {
 				Logger.Printf("cannot write response body: %v", err)
 			}

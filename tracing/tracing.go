@@ -78,10 +78,15 @@ func TraceFunction(ctx context.Context, fn interface{}, params ...interface{}) (
 // CreateChildSpan creates a new opentracing span adding tags for the span name and caller details. Returns a Span.
 // User must call `defer sp.Finish()`
 func CreateChildSpan(ctx context.Context, name string) opentracing.Span {
+	var sp opentracing.Span
 	parentSpan := opentracing.SpanFromContext(ctx)
-	sp := opentracing.StartSpan(
-		name,
-		opentracing.ChildOf(parentSpan.Context()))
+	if parentSpan != nil {
+		sp = opentracing.StartSpan(
+			name,
+			opentracing.ChildOf(parentSpan.Context()))
+	} else {
+		sp = opentracing.StartSpan(name)
+	}
 	sp.SetTag("name", name)
 
 	// Get caller function name, file and line
