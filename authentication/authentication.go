@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -82,7 +82,7 @@ func HashAndSalt(pwd []byte) string {
 	// than the MinCost (4)
 	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
 	if err != nil {
-		log.Println(err)
+		slog.Error("cannot generate hash from password", "error", err, "component", "authenticator")
 	}
 	// GenerateFromPassword returns a byte slice so we need to
 	// convert the bytes to a string and return it
@@ -95,7 +95,7 @@ func comparePasswords(hashedPwd string, plainPwd []byte) bool {
 	byteHash := []byte(hashedPwd)
 	err := bcrypt.CompareHashAndPassword(byteHash, plainPwd)
 	if err != nil {
-		log.Println(err)
+		slog.Error("cannot compare hash", "error", err, "component", "authenticator")
 		return false
 	}
 

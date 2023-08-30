@@ -4,14 +4,19 @@ import (
 	"bytes"
 	"html/template"
 	"io/fs"
-	"log"
+	"log/slog"
 	"reflect"
+)
+
+const (
+	KeyError       = "error"
+	KeyComponent   = "component"
+	ComponentModel = "model"
 )
 
 type Model struct {
 	Path               string
 	TemplatesDirectory fs.FS
-	Logger             *log.Logger
 	Template           string
 	Includes           []string
 	ResponseCode       int
@@ -45,7 +50,7 @@ func IsSet(name string, data interface{}) bool {
 
 func (m Model) Render(Debug bool, data interface{}) (int, string, string, *bytes.Buffer, *ProcessingError) {
 	if Debug {
-		m.Logger.Printf("using %s template", m.Template)
+		slog.Debug("using %s template", m.Template, KeyComponent, ComponentModel)
 	}
 
 	patterns := []string{m.Template}
@@ -53,7 +58,7 @@ func (m Model) Render(Debug bool, data interface{}) (int, string, string, *bytes
 
 	t, err := template.New(m.Template).Funcs(template.FuncMap{"isset": IsSet}).ParseFS(m.TemplatesDirectory, patterns...)
 	if err != nil {
-		m.Logger.Println(err)
+		slog.Error("cannot create template", KeyError, err, KeyComponent, ComponentModel)
 		return 0, "", "", nil, &ProcessingError{ResponseCode: 500}
 	}
 
@@ -61,7 +66,7 @@ func (m Model) Render(Debug bool, data interface{}) (int, string, string, *bytes
 
 	err = t.Execute(&buf, &data)
 	if err != nil {
-		m.Logger.Println(err)
+		slog.Error("cannot render document from template", KeyError, err, KeyComponent, ComponentModel)
 		return 0, "", "", nil, &ProcessingError{ResponseCode: 500}
 	}
 

@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/viper"
 	"html/template"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -25,6 +25,13 @@ import (
 
 //go:embed errorPages
 var errorPageFiles embed.FS
+
+const (
+	KeyError           = "error"
+	KeyComponent       = "component"
+	ComponentService   = "service"
+	ComponentAccessLog = "access_log"
+)
 
 type Redirect struct {
 	Location string
@@ -46,7 +53,6 @@ type Service struct {
 }
 
 var (
-	Logger               *log.Logger
 	Debug                bool
 	Port                 int
 	staticFiles          embed.FS
@@ -72,10 +78,6 @@ var (
 )
 
 func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controllers.Controller) map[string]controllers.Controller) {
-	if Logger == nil {
-		Logger = log.New(os.Stdout, "pepper: ", log.LstdFlags)
-	}
-
 	staticFiles = sf
 	templates = t
 
@@ -138,13 +140,13 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 	var prometheusHandler = ba.BasicAuth(viper.GetString("http.password.file"))(promhttp.Handler())
 
 	http.Handle("/metrics", prometheusHandler)
-	http.Handle(viper.GetString("http.context"), Tracing(nextRequestID)(Logging(Logger)(requestHandler(useEmbedded, customize))))
+	http.Handle(viper.GetString("http.context"), Tracing(nextRequestID)(Logging()(requestHandler(useEmbedded, customize))))
 	Port = viper.GetInt("http.port")
 }
 
 func Run() {
 	if err := http.ListenAndServe(":"+strconv.Itoa(Port), nil); err != nil && err != http.ErrServerClosed {
-		Logger.Fatalf("Cannot start server: %v", err)
+		slog.Error("Cannot start server", KeyError, err, KeyComponent, ComponentService)
 	}
 }
 
@@ -157,10 +159,10 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 	controls := viper.GetStringMapString("http.controllers")
 	var fsRoot fs.FS
 	if useEmbedded {
-		Logger.Println("using embedded templates")
+		slog.Info("using embedded templates", KeyComponent, ComponentService)
 		fsRoot, _ = fs.Sub(templates, viper.GetString("http.content.templatesDirectory"))
 	} else {
-		Logger.Println("using templates from the file system")
+		slog.Info("using templates from the file system", KeyComponent, ComponentService)
 		templates = os.DirFS(viper.GetString("http.content.templatesDirectory"))
 		fsRoot = templates
 		//fsRoot, _ = fs.Sub(templates, viper.GetString("http.content.templatesDirectory"))
@@ -171,7 +173,6 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 				Path:               key,
 				Template:           value,
 				TemplatesDirectory: fsRoot,
-				Logger:             Logger,
 				Includes:           includes,
 				GoogleAnalyticsId:  GoogleAnayticsId,
 			},
@@ -183,11 +184,11 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 	var static = http.FS(fsRoot)
 
 	if useEmbedded {
-		Logger.Println("using embedded content")
+		slog.Info("using embedded content", KeyComponent, ComponentService)
 		staticHandler = http.FileServer(static)
 
 	} else {
-		Logger.Println("using content from the file system")
+		slog.Info("using content from the file system", KeyComponent, ComponentService)
 		staticHandler = http.FileServer(http.Dir(viper.GetString("http.content.staticDirectory")))
 	}
 
@@ -220,7 +221,7 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 		code := 404
 		code, err = strconv.Atoi(key)
 		if err != nil {
-			Logger.Fatalf("unexpected error code %s in error pages definition", key)
+			slog.Error("unexpected error code %s in error pages definition", key, KeyComponent, ComponentService)
 		}
 
 		m := ErrorPages[code]
@@ -265,17 +266,17 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			message := fmt.Sprintf("static file %s does not exist", path)
 			span.LogFields(otlog.String("event", "controller-error"), otlog.String("message", message))
-			Logger.Println(message)
+			slog.Info(message, KeyComponent, ComponentService)
 			b, err := GetErrorPageContent(model.ProcessingError{ResponseCode: 404})
 			if err != nil {
-				Logger.Printf("cannot read error page content: %v", err)
+				slog.Error("cannot read error page content", KeyError, err, KeyComponent, ComponentService)
 			}
 
 			w.WriteHeader(404)
 			w.Header().Set("Content-Type", "text/html")
 			_, err = w.Write(b)
 			if err != nil {
-				Logger.Printf("cannot write response body: %v", err)
+				slog.Error("cannot write response body", KeyError, err, KeyComponent, ComponentService)
 			}
 			return
 		}
@@ -285,7 +286,7 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if controllerError != nil {
 			message := fmt.Sprintf("cannot handle request %s: %v", path, controllerError)
 			span.LogFields(otlog.String("event", "controller-error"), otlog.String("message", message))
-			Logger.Println(message)
+			slog.Info(message, KeyComponent, ComponentService)
 			w.WriteHeader(controllerError.ResponseCode)
 
 			if contentType == "" {
@@ -302,7 +303,7 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if b == nil {
 				errorPageContent, err = GetErrorPageContent(*controllerError)
 				if err != nil {
-					Logger.Printf("cannot read error page content: %v", err)
+					slog.Error("cannot read error page content", KeyError, err, KeyComponent, ComponentService)
 				}
 			} else {
 				errorPageContent = b.Bytes()
@@ -310,7 +311,7 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			_, err = w.Write(errorPageContent)
 			if err != nil {
-				Logger.Printf("cannot write response body: %v", err)
+				slog.Error("cannot write response body", KeyError, err, KeyComponent, ComponentService)
 			}
 			return
 		}
@@ -334,7 +335,7 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", contentType)
 		_, err := w.Write(b.Bytes())
 		if err != nil {
-			Logger.Println(controllerError)
+			slog.Error("controller error", KeyError, controllerError, KeyComponent, ComponentService)
 		}
 	}
 }
@@ -354,13 +355,13 @@ func GetErrorPageContent(pe model.ProcessingError) ([]byte, error) {
 
 			t, err := template.New(errorDefinition.Name).Funcs(template.FuncMap{"isset": model.IsSet}).ParseFS(fsRoot, patterns...)
 			if err != nil {
-				Logger.Printf("cannot create template %s: %v", errorDefinition.Name, err)
+				slog.Error(fmt.Sprintf("cannot create template %s", errorDefinition.Name), KeyError, err, KeyComponent, ComponentService)
 				return nil, err
 			}
 			var buf bytes.Buffer
 			err = t.Execute(&buf, &pe.Data)
 			if err != nil {
-				Logger.Printf("cannot render template %s: %v", errorDefinition.Name, err)
+				slog.Error(fmt.Sprintf("cannot render template %s", errorDefinition.Name), KeyError, err, KeyComponent, ComponentService)
 				return nil, err
 			}
 

@@ -1,7 +1,7 @@
 package pepper
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,7 +20,7 @@ type loggingResponseWriter struct {
 	duration            float64
 }
 
-func Logging(logger *log.Logger) func(http.Handler) http.Handler {
+func Logging() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			lrw := NewLoggingResponseWriter(w)
@@ -40,7 +40,7 @@ func Logging(logger *log.Logger) func(http.Handler) http.Handler {
 				}
 
 				if r.URL.Path != "/ready" && r.URL.Path != "/healthz" && r.URL.Path != "/metrics" {
-					logger.Println(ip, requestID, r.Method, lrw.statusCode, r.URL.RequestURI(), lrw.duration, lrw.size, r.UserAgent())
+					slog.Info("http server request", "ip_address", ip, "request_id", requestID, "method", r.Method, "status", lrw.statusCode, "path", r.URL.RequestURI(), "processing_time", lrw.duration, "size", lrw.size, "user_agent", r.UserAgent(), KeyComponent, ComponentAccessLog)
 					RequestDurationGauge.WithLabelValues(strconv.Itoa(lrw.statusCode), r.Method, r.URL.Path).Set(lrw.duration)
 					RequestDurationSummary.WithLabelValues(strconv.Itoa(lrw.statusCode), r.Method, r.URL.Path).Observe(lrw.duration)
 				}
