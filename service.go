@@ -146,7 +146,8 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 
 func Run() {
 	if err := http.ListenAndServe(":"+strconv.Itoa(Port), nil); err != nil && err != http.ErrServerClosed {
-		slog.Error("Cannot start server", KeyError, err, KeyComponent, ComponentService)
+		slog.Error("cannot start server", KeyError, err, KeyComponent, ComponentService)
+		os.Exit(1)
 	}
 }
 
@@ -222,6 +223,7 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 		code, err = strconv.Atoi(key)
 		if err != nil {
 			slog.Error("unexpected error code %s in error pages definition", key, KeyComponent, ComponentService)
+			os.Exit(1)
 		}
 
 		m := ErrorPages[code]
