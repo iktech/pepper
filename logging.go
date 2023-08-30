@@ -35,7 +35,7 @@ func Logging() func(http.Handler) http.Handler {
 				if ip == "" {
 					ip = r.RemoteAddr
 					if strings.Contains(ip, ":") {
-						ip = r.RemoteAddr[:strings.IndexByte(ip, ':')]
+						ip = r.RemoteAddr[:strings.LastIndexByte(ip, ':')]
 					}
 				}
 
