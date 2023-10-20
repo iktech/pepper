@@ -2,6 +2,7 @@ package pepper
 
 import (
 	"context"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"net/http"
 )
 
@@ -14,7 +15,18 @@ func Tracing(nextRequestID func() string) func(http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 			w.Header().Set("X-Request-Id", requestID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+
+			if r.Method != "OPTIONS" &&
+				r.Method != "HEAD" &&
+				r.URL.Path != "/healthz" &&
+				r.URL.Path != "/ready" &&
+				r.URL.Path != "/metrics" {
+
+				handler := otelhttp.NewHandler(next, r.Method+" "+r.URL.Path)
+				handler.ServeHTTP(w, r.WithContext(ctx))
+			}
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }

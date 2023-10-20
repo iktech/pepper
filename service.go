@@ -7,12 +7,11 @@ import (
 	"github.com/iktech/pepper/authentication"
 	"github.com/iktech/pepper/controllers"
 	"github.com/iktech/pepper/model"
-	"github.com/iktech/pepper/tracing"
-	"github.com/opentracing/opentracing-go"
-	otlog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -58,7 +57,6 @@ var (
 	staticFiles          embed.FS
 	templates            fs.FS
 	ErrorPages           map[int]*ErrorPageDefinition
-	Tracer               opentracing.Tracer
 	GoogleAnayticsId     string
 	RequestDurationGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -245,16 +243,17 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 
 func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	ctx, span := tracing.CreateChildSpanCtx(ctx, "/beta")
-	defer span.Finish()
+	tracer := otel.Tracer("http-server")
+	ctx, span := tracer.Start(r.Context(), "/beta")
+	span.End()
 
 	r = r.WithContext(ctx)
 
 	path := strings.TrimPrefix(r.URL.Path, "/")
-	span.SetTag("resource", path)
+	span.SetAttributes(attribute.String("resource", path))
 	redirect, found := s.redirects[path]
 	if found {
-		span.LogFields(otlog.String("event", "redirect"), otlog.String("location", redirect.Location))
+		span.SetAttributes(attribute.String("event", "redirect"), attribute.String("location", redirect.Location))
 		w.Header().Set("Location", redirect.Location)
 		w.WriteHeader(int(redirect.Code))
 		return
@@ -262,12 +261,12 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	route := s.routerMap[path]
 	if route == nil {
-		span.LogFields(otlog.String("event", "static-file"))
+		span.SetAttributes(attribute.String("event", "static-file"))
 		if staticFileExists(path) {
 			s.staticHandler.ServeHTTP(w, r)
 		} else {
 			message := fmt.Sprintf("static file %s does not exist", path)
-			span.LogFields(otlog.String("event", "controller-error"), otlog.String("message", message))
+			span.SetAttributes(attribute.String("event", "controller-error"), attribute.String("message", message))
 			slog.Info(message, KeyComponent, ComponentService)
 			b, err := GetErrorPageContent(model.ProcessingError{ResponseCode: 404})
 			if err != nil {
@@ -283,11 +282,11 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		span.LogFields(otlog.String("event", "handler"))
+		span.SetAttributes(attribute.String("event", "handler"))
 		code, redirectUrl, contentType, b, controllerError := route.Handle(r)
 		if controllerError != nil {
 			message := fmt.Sprintf("cannot handle request %s: %v", path, controllerError)
-			span.LogFields(otlog.String("event", "controller-error"), otlog.String("message", message))
+			span.SetAttributes(attribute.String("event", "controller-error"), attribute.String("message", message))
 			slog.Info(message, KeyComponent, ComponentService)
 			w.WriteHeader(controllerError.ResponseCode)
 
@@ -332,7 +331,7 @@ func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		span.LogFields(otlog.String("event", "response"), otlog.Int("code", code), otlog.String("content-type", contentType))
+		span.SetAttributes(attribute.String("event", "response"), attribute.Int("code", code), attribute.String("content-type", contentType))
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", contentType)
 		_, err := w.Write(b.Bytes())
