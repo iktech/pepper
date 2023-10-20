@@ -73,6 +73,7 @@ var (
 		},
 		[]string{"code", "method", "path"},
 	)
+	Server *http.Server
 )
 
 func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controllers.Controller) map[string]controllers.Controller) {
@@ -140,10 +141,13 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 	http.Handle("/metrics", prometheusHandler)
 	http.Handle(viper.GetString("http.context"), Tracing(nextRequestID)(Logging()(requestHandler(useEmbedded, customize))))
 	Port = viper.GetInt("http.port")
+	Server = &http.Server{
+		Addr: ":" + strconv.Itoa(Port),
+	}
 }
 
 func Run() {
-	if err := http.ListenAndServe(":"+strconv.Itoa(Port), nil); err != nil && err != http.ErrServerClosed {
+	if err := Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("cannot start server", KeyError, err, KeyComponent, ComponentService)
 		os.Exit(1)
 	}
