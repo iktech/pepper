@@ -248,7 +248,7 @@ func requestHandler(useEmbedded bool, customise func(map[string]controllers.Cont
 func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tracer := otel.Tracer("http-server")
-	ctx, span := tracer.Start(r.Context(), "/beta")
+	ctx, span := tracer.Start(r.Context(), r.Method+" "+r.RequestURI)
 	defer span.End()
 
 	r = r.WithContext(ctx)
