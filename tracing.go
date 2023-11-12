@@ -24,6 +24,7 @@ func Tracing(nextRequestID func() string) func(http.Handler) http.Handler {
 
 				handler := otelhttp.NewHandler(next, r.Method+" "+r.URL.Path)
 				handler.ServeHTTP(w, r.WithContext(ctx))
+				return
 			}
 
 			next.ServeHTTP(w, r)
