@@ -102,8 +102,8 @@ func CreateService(sf embed.FS, t embed.FS, customize func(map[string]controller
 	_ = viper.BindEnv("http.password.file", "HTTP_PASSWORD_FILE")
 	_ = viper.BindEnv("google.analytics.id", "GOOGLE_ANALYTICS_ID")
 	_ = viper.BindEnv("opentracing.tracerEndpoint", "OTEL_TRACER_ENDPOINT")
-	_ = viper.BindEnv("opentracing.serviceName", "OTEL_ENVIRONMENT")
-	_ = viper.BindEnv("opentracing.environment", "OTEL_SERVICE_NAME")
+	_ = viper.BindEnv("opentracing.serviceName", "OTEL_SERVICE_NAME")
+	_ = viper.BindEnv("opentracing.environment", "OTEL_ENVIRONMENT")
 
 	controllers.Debug = Debug
 	useEmbedded := viper.GetBool("http.content.useEmbedded")
